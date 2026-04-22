@@ -3,15 +3,18 @@
 
 sudo scapy (to install sudo apt update and sudo apt install python3-scapy) and also for scapy on VM dont use import thingy...
 
-from scapy.all import *
-myframe=Ether()/IP() 
+from scapy.all import * 
+myframe = Ether()/IP(dst="8.8.8.8")
 myframe.show()
 myframe.summary()
+send(myframe)
 
-
-packet=Ether()/ARP()
+packet = Ether()/ARP(pdst="192.168.1.1")
 packet.show()
 packet.summary()
+send(packet)
+
+filter ip and arp
 
 
 1c
@@ -31,7 +34,7 @@ chmod +x port_scan.sh
 
 ./port_scan.sh
 
-to make the port succed run
+to make the port succeed run
 
 sudo nc -l <port>
 
@@ -43,10 +46,10 @@ sudo nc -l <port>
 sudo scapy
 
 from scapy.all import *
-
 pac=sniff(count=10)
 pac.summary()
 
+>>just run wireshark and run the code and filter tcp.port == 443 && ip.addr == <dst_ip in code>
 
 2c
 if config 
@@ -67,6 +70,8 @@ sudo scapy
 from scapy.all import *
 result, unanswered = traceroute(["www.example.com", "www.google.com"], maxttl=20)
 result.show()
+
+filter ip.addr== <google.com ip>
 
 3b
 nc example.com 80
@@ -92,26 +97,22 @@ ifconfig
 nano scanner.py
 inside 
 
-import scapy.all as scapy
+from scapy.all import *
 
-request = scapy.ARP()
-request.pdst = "10.0.2.0/24"   # ✅ correct network add your network which starts with 10.x.x.x
+# Create ARP request packet (broadcast)
+packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst="10.205.89.0/24")
 
-broadcast = scapy.Ether()
-broadcast.dst = "ff:ff:ff:ff:ff:ff"
+# Send packet and receive responses
+result = srp(packet, timeout=2, verbose=0)[0]
 
-request_broadcast = broadcast / request
-
-clients = scapy.srp(request_broadcast,timeout=2,iface="enp0s3",verbose=False)[0]
-
-print("IP Address\t\tMAC Address")
-print("-----------------------------------------")
-
-for element in clients:
-    print(element[1].psrc + "\t\t" + element[1].hwsrc)
+# Print IP and MAC addresses
+for sent, received in result:
+    print(received.psrc, "-", received.hwsrc)
 
 
 sudo python3 scanner.py
+
+filter : arp and ip addr
 
 4b
 
@@ -177,11 +178,10 @@ server: nooblinux
 <!doctype html>
 <title> image </title>
 <h1> nature </h1>
-<img src = "file:///home/kali/Downloads/raimun-nature-10212379_1920.jpg">
+<img src = "https://static.vecteezy.com/system/resources/thumbnails/057/068/323/small/single-fresh-red-strawberry-on-table-green-background-food-fruit-sweet-macro-juicy-plant-image-photo.jpg">
 
 7c Badstore
-x' union select count(itemnum),count(itemnum),count(itemnum),count(itemnum) from
-itemdb -- 
+x' union select count(itemnum),count(itemnum),count(itemnum),count(itemnum) from itemdb -- 
 
 ------------------------------------------------------
 
@@ -190,18 +190,31 @@ itemdb --
 run on seed 
 
 from scapy.all import *
-import socket
 
-target = "www.bnmit.org"
-target_ip = socket.gethostbyname(target)
+target = "www.example.com"
 
-for port in range(20, 25):
-    packet = IP(dst=target_ip) / TCP(dport=port, flags="S")
-    response = sr1(packet, timeout=1, verbose=0)
+packet = IP(dst=target) / TCP(dport=80, flags="S")
+reply = sr1(packet, timeout=1, verbose=0)
 
-    if response:
-        if response.haslayer(TCP) and response[TCP].flags == 18:
-            print("Port", port, "is OPEN")
+if reply:
+    print("Port 80 is open")
+else:
+    print("Port 80 is closed")
+
+filter : tcp.port==80 
+
+-----
+from scapy.all import *
+
+target = "www.example.com"
+ports = range(20, 101)
+
+packet = IP(dst=target) / TCP(dport=ports, flags="S")
+responses = sr(packet, timeout=2, verbose=0)[0]
+
+for sent, received in responses:
+    if received.haslayer(TCP) and received[TCP].flags == 0x12:
+        print(f"Port {sent[TCP].dport} is OPEN")
 
 
 8b 
@@ -241,6 +254,7 @@ def callback(packet):
         packet.show()
 
 sniff(filter="icmp", prn=callback, count=10)
+
 
 
 sudo python3 icmp_monitor.py
